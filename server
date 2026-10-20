@@ -1,0 +1,19 @@
+const express = require('express');
+const app = express();
+const PORT = 3000;
+
+// Permet de lire les données JSON
+app.use(express.json());
+
+// Rend visible tout ce qui est dans le dossier "public" (HTML, CSS, JS)
+app.use(express.static('public'));
+
+// Route de test pour voir si l'API répond
+app.get('/api/test', (req, res) => {
+    res.json({ message: "Le serveur fonctionne parfaitement !" });
+});
+
+// Lancement du serveur
+app.listen(PORT, () => {
+    console.log(`Serveur démarré sur http://localhost:${PORT}`);
+});
