@@ -1,0 +1,90 @@
+// Définir la date cible de livraison (Exemple : 18 Octobre 2026 à 18:00:00)
+// Définissez la date et l'heure exactes de livraison prévue
+const targetTime = new Date("October 18, 2026 18:00:00").getTime();
+
+const updateCountdown = setInterval(() => {
+  const now = new Date().getTime();
+  const timeLeft = targetTime - now;
+
+  const countdownElement = document.getElementById("live-countdown");
+
+  if (!countdownElement) return;
+
+  if (timeLeft < 0) {
+    clearInterval(updateCountdown);
+    countdownElement.innerHTML = "Délai dépassé / Livraison imminente";
+    countdownElement.className = "text-lg font-bold text-red-600";
+    return;
+  }
+
+  // Calcul des jours, heures, minutes et secondes restants
+  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+  // Affichage formaté dans la zone dédiée
+  countdownElement.innerHTML = `${days}j ${hours}h ${minutes}m ${seconds}s`;
+
+}, 1000); // S'actualise toutes les 1000 millisecondes (1 seconde)
+
+  // Calcul des jours, heures, minutes et secondes
+  const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+  // Formatage avec zéro devant (ex: 05s au lieu de 5s)
+  const formatTime = (time) => (time < 10 ? `0${time}` : time);
+
+  // Affichage dans l'élément #countdown
+  const countdownElement = document.getElementById("countdown");
+  
+  if (countdownElement) {
+    if (distance > 0) {
+      countdownElement.innerHTML = `${days}d ${formatTime(hours)}h ${formatTime(minutes)}m ${formatTime(seconds)}s`;
+    } else {
+      clearInterval(countdownFunction);
+      countdownElement.innerHTML = "LIVRAISON EN COURS / IMMINENTE";
+      countdownElement.className = "text-xl font-bold text-red-600 animate-bounce";
+    }
+  }
+}, 1000);
+async function rechercherColis() {
+    const input = document.getElementById('trackingInput');
+    const zoneResultat = document.getElementById('resultat');
+
+    if (!input || !input.value.trim()) {
+        alert("Veuillez entrer un numéro de suivi.");
+        return;
+    }
+
+    const code = input.value.trim();
+
+    try {
+        // Envoi de la requête au serveur Node.js
+        const response = await fetch(`/api/suivi/${code}`);
+        const data = await response.json();
+
+        if (data.succes) {
+            zoneResultat.style.color = "green";
+            zoneResultat.innerHTML = `
+                <div style="text-align: left; background: #fff; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd;">
+                    <p><strong>Colis :</strong> ${data.colis.numero}</p>
+                    <p><strong>Statut :</strong> ${data.colis.statut}</p>
+                    <p><strong>Client :</strong> ${data.colis.client}</p>
+                    <p><strong>Origine :</strong> ${data.colis.origine}</p>
+                    <p><strong>Destination :</strong> ${data.colis.destination}</p>
+                    <p><strong>Estimation (ETA) :</strong> ${data.colis.eta}</p>
+                </div>
+            `;
+        } else {
+            zoneResultat.style.color = "red";
+            zoneResultat.innerHTML = `<p style="margin-top: 15px;">${data.message}</p>`;
+        }
+    } catch (error) {
+        console.error("Erreur de connexion au serveur :", error);
+        zoneResultat.style.color = "red";
+        zoneResultat.innerHTML = "<p style="margin-top: 15px;">Erreur de communication avec le serveur.</p>";
+    }
+}
