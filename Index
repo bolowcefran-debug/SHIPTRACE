@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="meta-title">ShipTrace - Professional Parcel Tracking</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   <style>
+        
+        @media print {
+            body * { visibility: hidden; }
+            #printable-receipt, #printable-receipt * { visibility: visible; }
+            #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; box-shadow: none; border: none; }
+            .no-print { display: none !important; }
+        }
+        .step-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .7; transform: scale(1.1); }
+
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f4f7f6; }
+        .search-box { background: white; padding: 30px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input { padding: 10px; width: 250px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #0066cc; color: white; border: none; cursor: pointer; }
+        #resultat { margin-top: 20px; font-weight: bold; font-size: 18px; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 min-h-screen">
+
+    <script>
+        // Simulation d'une base de données locale (En attendant un vrai serveur)
+        const baseDeDonneesColis = {
+            "TRK-2026-88942": { statut: "En transit vers Paris", expediteur: "Lyon Logistics", destinataire: "Pierre" },
+            "TRK-2026-99999": { statut: "Livré avec succès", expediteur: "Marseille Hub", destinataire: "Marie" }
+        };
+
+        function rechercherColis() {
+            const code = document.getElementById('trackingInput').value.trim();
+            const zoneResultat = document.getElementById('resultat');
+
+            if (baseDeDonneesColis[code]) {
+                const info = baseDeDonneesColis[code];
+                zoneResultat.style.color = "green";
+                zoneResultat.innerHTML = `Colis trouvé !<br>Statut : ${info.statut}<br>Destinataire : ${info.destinataire}`;
+            } else {
+                zoneResultat.style.color = "red";
+                zoneResultat.innerHTML = "Numéro de suivi introuvable.";
+            }
+        }
+    </script>
+
+    <!-- En-tête -->
+    <header class="bg-slate-900 text-white shadow-md no-print">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2.5 rounded-lg font-bold text-xl shadow">
+                    <i class="fa-solid fa-box-open"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">SHIPTRACE</h1>
+                    <p class="text-xs text-slate-400" data-i18n="subtitle">Cloud Logistics & Tracking Portal</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Sélecteur de langue -->
+                <select id="lang-select" onchange="switchLanguage(this.value)" class="bg-slate-800 text-xs text-white border border-slate-700 rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+                    <option value="en" selected>English (Default)</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                </select>
+
+                <button onclick="toggleAdminMode()" id="admin-toggle-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition">
+                    <i class="fa-solid fa-lock"></i> <span data-i18n="admin_btn">Admin Access</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- COLONNE GAUCHE -->
+        <div class="lg:col-span-5 space-y-6 no-print">
+            
+            <!-- Recherche Publique -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass text-blue-600"></i> <span data-i18n="track_title">Online Parcel Tracking</span>
+                </h2>
+                <p class="text-xs text-slate-500 mb-4" data-i18n="track_desc">Enter your tracking number (e.g., TRK-2026-88942) to view your official slip.</p>
+                
+                <div class="flex gap-2">
+                    <input type="text" id="search-input" placeholder="Ex: TRK-2026-88942" class="flex-1 border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase font-mono">
+                    <button onclick="searchParcel()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm" data-i18n="search_btn">
+                        Search
+                    </button>
+                </div>
+                <p id="search-error" class="text-red-500 text-xs mt-2 hidden" data-i18n="search_error">No parcel found with this tracking number.</p>
+            </div>
+
+            <!-- MODAL LOGIN ADMIN -->
+            <div id="login-section" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hidden">
+                <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield text-slate-700"></i> <span data-i18n="admin_login_title">Administrator Login</span>
+                </h3>
+                <form onsubmit="loginAdmin(event)" class="space-y-3">
+                    <input type="email" id="admin-email" placeholder="Email admin" value="admin@shiptrace.com" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    <input type="password" id="admin-password" placeholder="Password" value="admin1234" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg text-xs font-semibold uppercase" data-i18n="login_btn">Sign In</button>
+                    <p class="text-[10px] text-slate-400 text-center">Default: admin@shiptrace.com / admin1234</p>
+                </form>
+            </div>
+
+            <!-- ESPACE GESTION ADMIN -->
+            <div id="admin-panel" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hidden space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-600"></i> <span data-i18n="admin_panel_title">Admin Management Panel</span>
+                    </h2>
+                    <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded" data-i18n="admin_active">ADMIN ACTIVE</span>
+                </div>
+
+                <form id="parcel-form" onsubmit="saveParcel(event)" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_tracking">Tracking Number</label>
+                        <input type="text" id="p-tracking" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono uppercase bg-slate-50" placeholder="TRK-2026-XXXX">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_client">Client Name</label>
+                            <input type="text" id="p-client-name" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_phone">Phone</label>
+                            <input type="text" id="p-client-phone" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_address">Delivery Address</label>
+                        <input type="text" id="p-address" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_type">Parcel Type</label>
+                            <input type="text" id="p-type" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_dims">Weight / Dimensions</label>
+                            <input type="text" id="p-dimensions" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_origin">Origin Zone</label>
+                            <input type="text" id="p-origin" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_dest">Destination Zone</label>
+                            <input type="text" id="p-destination" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_eta">Estimated Time of Arrival (ETA)</label>
+                        <input type="text" id="p-eta" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1" data-i18n="lbl_notes">Special Instructions / Remarks</label>
+                        <textarea id="p-notes" rows="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"></textarea>
+                    </div>
+
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg text-xs font-semibold transition" data-i18n="save_btn">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i> Save Parcel
+                        </button>
+                        <button type="button" onclick="generateShareLink()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs" title="Copy direct link">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="pt-3 border-t border-slate-200">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-xs font-semibold text-slate-500 uppercase" data-i18n="saved_parcels">Registered Parcels List:</h3>
+                        <button onclick="addNewParcelForm()" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-semibold hover:bg-blue-100">+ New Client</button>
+                    </div>
+                    <div id="admin-parcels-list" class="space-y-1 max-h-40 overflow-y-auto text-xs"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- COLONNE DROITE : AFFICHAGE CLIENT + DOCUMENT OFFICIEL -->
+        <div class="lg:col-span-7">
+            <div class="sticky top-6 space-y-4">
+                
+                <div class="bg-white rounded-t-xl border-t border-x border-slate-200 px-6 py-3 flex justify-between items-center no-print">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider" data-i18n="doc_preview">Official Transport Document Preview</span>
+                    <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-print"></i> <span data-i18n="print_btn">Print / Save PDF</span>
+                    </button>
+                </div>
+
+                <!-- CARTE DE SUIVI VISUELLE & INTERACTIVE AVEC IMAGE -->
+                <div id="printable-receipt" class="bg-white rounded-b-xl shadow-lg border border-slate-200 p-6 text-slate-800 font-sans space-y-6">
+                    
+                    <!-- Image du colis scanné -->
+                    <div class="relative overflow-hidden rounded-xl h-48 bg-slate-900 shadow-inner group">
+                        <img src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=1000" id="parcel-image" alt="Scanned Parcel" class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition duration-500">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-transparent flex flex-col justify-end p-4">
+                            <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> <span data-i18n="live_status">Live Status</span>
+                            </span>
+                            <h3 class="text-lg font-bold text-white" id="r-status-heading">In Transit - Processing Hub</h3>
+                        </div>
+                    </div>
+
+                    <!-- BARRE D'ÉTAPES INTERACTIVE -->
+                    <div class="space-y-2 no-print">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="live_timeline">Live Delivery Timeline</h4>
+                        <div class="grid grid-cols-4 gap-2 text-center text-[11px] font-semibold">
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold shadow-md">
+                                    <i class="fa-solid fa-check text-xs"></i>
+                                </div>
+                                <span class="text-slate-700" data-i18n="step1">Registered</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-md step-pulse">
+                                    <i class="fa-solid fa-truck-fast text-xs"></i>
+                                </div>
+                                <span class="text-blue-600 font-bold" data-i18n="step2">In Transit</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center font-bold">
+                                    <i class="fa-solid fa-building text-xs"></i>
+                                </div>
+                                <span class="text-slate-400" data-i18n="step3">Hub Arrival</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center font-bold">
+                                    <i class="fa-solid fa-box-open text-xs"></i>
+                                </div>
+                                <span class="text-slate-400" data-i18n="step4">Delivered</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- En-tête officiel du document -->
+                    <div class="border-y border-slate-200 py-3 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-xl font-black text-slate-900 tracking-tight">SHIPTRACE</h2>
+                            <p class="text-xs text-slate-500" data-i18n="doc_subtitle">Official delivery tracking & registration slip</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-mono font-bold text-base text-blue-600" id="receipt-tracking">TRK-2026-88942</div>
+                            <div class="text-[11px] text-slate-500" id="receipt-date">Registration: 16 Oct. 2026</div>
+                        </div>
+                    </div>
+
+                    <!-- INFORMATIONS DU CLIENT ET DU COLIS -->
+          <!-- Carte CLIENT INFORMATION -->
+<!-- Grille à deux colonnes : Client Information à gauche, Parcel Details à droite -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+  <!-- 1. BLOC CLIENT INFORMATION -->
+  <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100 flex justify-between items-center">
+    <div class="flex-1 pr-4">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">CLIENT INFORMATION</h3>
+      
+      <!-- Nom du client -->
+      <div class="mb-3">
+        <p class="text-xs text-gray-400 font-semibold uppercase">Client Name / Recipient</p>
+        <p class="text-2xl font-extrabold text-gray-900 tracking-wide">JASON CALLAHAN</p>
+      </div>
+
+      <!-- Contact / Téléphone -->
+      <div class="mb-3">
+        <p class="text-xs text-gray-400 font-semibold uppercase">Contact / Phone</p>
+        <p class="text-lg font-bold text-gray-800">+1 XXX XXX X</p>
+      </div>
+
+      <!-- Adresse de livraison -->
+      <div>
+        <p class="text-xs text-gray-400 font-semibold uppercase">Delivery Address</p>
+        <p class="text-base font-medium text-gray-800 leading-snug">3535 ETTRICK PLACE,CHARLOTTE,NC 28278
+        </p>
+      </div>
+    </div>
+
+    <!-- Espace Profil Vide (Contact inconnu) -->
+    <div class="flex flex-col items-center justify-center pl-4 border-l border-gray-100">
+      <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shadow-inner mb-1">
+        <svg class="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+        </svg>
+      </div>
+      <span class="text-[10px] text-gray-400 font-medium">Anonyme</span>
+    </div>
+  </div>
+
+
+  <!-- 2. BLOC PARCEL DETAILS (Très bien visible et mis en valeur) -->
+  <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-md border-2 border-blue-200 flex flex-col justify-between">
+    <div>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-blue-700">PARCEL DETAILS</h3>
+        <span class="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
+          Secure parcel
+        </span>
+      </div>
+
+      <!-- Type de colis -->
+      <div class="mb-3">
+        <p class="text-xs text-blue-500 font-semibold uppercase">Parcel Type</p>
+        <p class="text-2xl font-extrabold text-blue-900">AIRPODS,HEADPHONES</p>
+      </div>
+
+      <!-- Poids et Dimensions -->
+      <div class="mb-3">
+        <p class="text-xs text-blue-500 font-semibold uppercase">Weight / Dimensions</p>
+        <p class="text-lg font-bold text-blue-900">20kg <span class="text-sm font-normal text-blue-700">/ 55x35x25 cm</span></p>
+      </div>
+<!-- Zones & ETA -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div class="bg-blue-50 border border-blue-100 rounded-lg p-2.5">
+                            <span class="text-blue-600 font-bold uppercase block mb-0.5" data-i18n="r_origin">Origin Zone</span>
+                            <span class="font-semibold text-slate-900 block" id="r-origin">SHENDGU,CHINA</span>
+                        </div>
+                        <div class="bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                            <span class="text-amber-700 font-bold uppercase block mb-0.5" data-i18n="r_dest">Destination Zone</span>
+                            <span class="font-semibold text-slate-900 block" id="r-destination">NORTH CAROLINA, USA</span>
+                        </div>
+      <!-- Mode d'expédition -->
+      <div>
+        <p class="text-xs text-blue-500 font-semibold uppercase">Shipping Mode</p>
+        <p class="text-base font-semibold text-blue-800">Secure Express</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+                        <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+  <span class="text-xs font-bold text-emerald-700 uppercase block mb-1">ESTIMATED TIME (ETA)</span>
+  <div id="live-countdown" class="text-xl font-extrabold text-emerald-800 tracking-wider">
+    Loading the timer...
+  </div>
+  
+  <!-- Compte à rebours animé -->
+  <div id="countdown" class="text-xl font-extrabold text-emerald-800 tracking-wider">
+    144h 21m 0s LOCKED
+  </div>
+  
+  <span class="text-xs text-emerald-600 font-medium block mt-1">Expected: 08 Oct. 2026</span>
+</div>
+                    </div>
+
+                    <div class="bg-amber-50/50 border border-amber-200/60 rounded-lg p-3 text-xs space-y-1">
+                        <span class="font-bold text-amber-900 block" data-i18n="r_notes_title">SPECIAL INSTRUCTIONS / REMARKS:</span>
+                        <p class="text-amber-800 GRAS" id="r-notes"> ⚠️ Status Update: Package Suspended
+
+Tracking   N°: TRK-2026-34182
+
+Current Status: Pending Customer Action
+
+Your shipment is currently being held at our intermediate logistics hub.
+
+Reason for Hold:
+
+Incomplete or incorrect contact details (phone number).
+
+
+Action Required:
+
+Please contact your supplier (shipper) to provide your complete contact details (phone number) and pay the package status update fee.
+                        </p>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500">
+                        <div>
+                            <p class="font-semibold text-slate-700" data-i18n="footer_doc">ShipTrace - Transport Document</p>
+                        </div>
+                        <div class="text-center border-t border-slate-400 pt-1 w-40">
+                            <span class="text-[9px] uppercase font-semibold text-slate-600" data-i18n="footer_sig">Mandatory Signature</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let currentLang = 'en';
+
+        const translations = {
+            en: {
+                subtitle: "Cloud Logistics & Tracking Portal",
+                admin_btn: "Admin Access",
+                track_title: "Online Parcel Tracking",
+                track_desc: "Enter your tracking number (e.g., TRK-2026-88942) to view your official slip.",
+                search_btn: "Search",
+                search_error: "No parcel found with this tracking number.",
+                admin_login_title: "Administrator Login",
+                login_btn: "Sign In",
+                admin_panel_title: "Admin Management Panel",
+                admin_active: "ADMIN ACTIVE",
+                lbl_tracking: "Tracking Number",
+                lbl_client: "Client Name",
+                lbl_phone: "Phone",
+                lbl_address: "Delivery Address",
+                lbl_type: "Parcel Type",
+                lbl_dims: "Weight / Dimensions",
+                lbl_origin: "Origin Zone",
+                lbl_dest: "Destination Zone",
+                lbl_eta: "Estimated Time of Arrival (ETA)",
+                lbl_notes: "Special Instructions / Remarks",
+                save_btn: "Save Parcel",
+                saved_parcels: "Registered Parcels List:",
+                doc_preview: "Official Transport Document Preview",
+                print_btn: "Print / Save PDF",
+                live_status: "Live Status",
+                live_timeline: "Live Delivery Timeline",
+                step1: "Registered",
+                step2: "In Transit",
+                step3: "Hub Arrival",
+                step4: "Delivered",
+                doc_subtitle: "Official delivery tracking & registration slip",
+                sec_client: "Client Information",
+                r_client: "Client Name / Recipient",
+                r_phone: "Contact / Phone",
+                r_address: "Delivery Address",
+                sec_parcel: "Parcel Details",
+                r_type: "Parcel Type",
+                r_dims: "Weight / Dimensions",
+                r_mode: "Shipping Mode",
+                r_origin: "Origin Zone",
+                r_dest: "Destination Zone",
+                r_eta: "Estimated Time (ETA)",
+                r_notes_title: "SPECIAL INSTRUCTIONS / REMARKS:",
+                footer_doc: "ShipTrace - Transport Document",
+                footer_sig: "Mandatory Signature"
+            },
+            fr: {
+                subtitle: "Portail de suivi et logistique cloud",
+                admin_btn: "Accès Admin",
+                track_title: "Suivi de Colis en Ligne",
+                track_desc: "Entrez votre numéro de suivi (ex: TRK-2026-88942) pour afficher votre fiche officielle.",
+                search_btn: "Rechercher",
+                search_error: "Aucun colis trouvé avec ce numéro de suivi.",
+                admin_login_title: "Connexion Administrateur",
+                login_btn: "Se connecter",
+                admin_panel_title: "Panneau d'Administration",
+                admin_active: "MODE ADMIN ACTIF",
+                lbl_tracking: "Numéro de Suivi",
+                lbl_client: "Nom du Client",
+                lbl_phone: "Téléphone",
+                lbl_address: "Adresse de Livraison",
+                lbl_type: "Type de Colis",
+                lbl_dims: "Poids / Dimensions",
+                lbl_origin: "Zone de Départ",
+                lbl_dest: "Zone d'Arrivée",
+                lbl_eta: "Temps Estimé (ETA)",
+                lbl_notes: "Remarques",
+                save_btn: "Enregistrer le Colis",
+                saved_parcels: "Liste des colis enregistrés :",
+                doc_preview: "Aperçu du Document de Transport Officiel",
+                print_btn: "Imprimer / Enregistrer PDF",
+                live_status: "Statut en direct",
+                live_timeline: "Chronologie du colis en direct",
+                step1: "Enregistré",
+                step2: "En transit",
+                step3: "Centre de tri",
+                step4: "Livré",
+                doc_subtitle: "Fiche officielle de suivi de livraison & enregistrement",
+                sec_client: "Informations Client",
+                r_client: "Nom du client / Destinataire",
+                r_phone: "Contact / Téléphone",
+                r_address: "Adresse de livraison",
+                sec_parcel: "Détails du Colis",
+                r_type: "Type de Colis",
+                r_dims: "Poids / Dimensions",
+                r_mode: "Mode d'expédition",
+                r_origin: "Zone de départ (Origine)",
+                r_dest: "Zone d'arrivée (Destination)",
+                r_eta: "Temps Estimé (ETA)",
+                r_notes_title: "INSTRUCTIONS SPÉCIALES / REMARQUES :",
+                footer_doc: "ShipTrace - Document de transport",
+                footer_sig: "Signature obligatoire"
+            },
+            es: {
+                subtitle: "Portal de logística y seguimiento en la nube",
+                admin_btn: "Acceso Admin",
+                track_title: "Seguimiento de Paquetes en Línea",
+                track_desc: "Ingrese su número de seguimiento (ej. TRK-2026-88942) para ver su comprobante oficial.",
+                search_btn: "Buscar",
+                search_error: "No se encontró ningún paquete con este número de seguimiento.",
+                admin_login_title: "Inicio de Sesión de Administrador",
+                login_btn: "Iniciar Sesión",
+                admin_panel_title: "Panel de Gestión de Admin",
+                admin_active: "ADMIN ACTIVO",
+                lbl_tracking: "Número de Seguimiento",
+                lbl_client: "Nombre del Cliente",
+                lbl_phone: "Teléfono",
+                lbl_address: "Dirección de Entrega",
+                lbl_type: "Tipo de Paquete",
+                lbl_dims: "Peso / Dimensiones",
+                lbl_origin: "Zona de Origen",
+                lbl_dest: "Zona de Destino",
+                lbl_eta: "Tiempo Estimado de Llegada (ETA)",
+                lbl_notes: "Instrucciones Especiales / Observaciones",
+                save_btn: "Guardar Paquete",
+                saved_parcels: "Lista de Paquetes Registrados:",
+                doc_preview: "Vista Previa del Documento de Transporte",
+                print_btn: "Imprimir / Guardar PDF",
+                live_status: "Estado en Vivo",
+                live_timeline: "Cronología de Entrega",
+                step1: "Registrado",
+                step2: "En Tránsito",
+                step3: "Llegada al Centro",
+                step4: "Entregado",
+                doc_subtitle: "Comprobante oficial de seguimiento de entrega y registro",
+                sec_client: "Información del Cliente",
+                r_client: "Nombre del cliente / Destinatario",
+                r_phone: "Contacto / Teléfono",
+                r_address: "Dirección de Entrega",
+                sec_parcel: "Detalles del Paquete",
+                r_type: "Tipo de Paquete",
+                r_dims: "Peso / Dimensiones",
+                r_mode: "Modo de Envío",
+                r_origin: "Zona de Origen",
+                r_dest: "Zona de Destino",
+                r_eta: "Tiempo Estimado (ETA)",
+                r_notes_title: "INSTRUCCIONES ESPECIALES / OBSERVACIONES:",
+                footer_doc: "ShipTrace - Documento de Transporte",
+                footer_sig: "Firma Obligatoria"
+            }
+        };
+
+        function switchLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            const elements = document.querySelectorAll('[data-i18n]');
+            elements.forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerText = translations[lang][key];
+                }
+            });
+        }
+
+        let isAdminLoggedIn = false;
+
+        const defaultParcel = {
+            tracking: "TRK-2026-88942",
+            clientName: "Jean Dupont",
+            clientPhone: "+33 6 12 34 56 78",
+            address: "124 Avenue des Champs-Élysées, Paris",
+            type: "Fragile Electronic Equipment",
+            dimensions: "4.5 kg - 35x25x15 cm",
+            origin: "Lyon Logistics Hub (Zone A)",
+            destination: "Paris Centre (Zone 7)",
+            eta: "24 to 48 Hours (Expected: 18 Oct. 2026)",
+            notes: "Fragile - Handle with care. Signature required upon delivery."
+        };
+
+        function getParcels() {
+            let data = localStorage.getItem('shiptrace_multi_parcels');
+            if (!data) {
+                let initial = { "TRK-2026-88942": defaultParcel };
+                localStorage.setItem('shiptrace_multi_parcels', JSON.stringify(initial));
+                return initial;
+            }
+            return JSON.parse(data);
+        }
+
+        function toggleAdminMode() {
+            if (!isAdminLoggedIn) {
+                document.getElementById('login-section').classList.toggle('hidden');
+            } else {
+                isAdminLoggedIn = false;
+                document.getElementById('admin-panel').classList.add('hidden');
+                document.getElementById('admin-toggle-btn').innerHTML = `<i class="fa-solid fa-lock"></i> <span data-i18n="admin_btn">${translations[currentLang].admin_btn}</span>`;
+                alert(currentLang === 'fr' ? "Déconnecté de l'espace administrateur." : (currentLang === 'es' ? "Sesión de administrador cerrada." : "Logged out of admin area."));
+            }
+        }
+
+        function loginAdmin(e) {
+            e.preventDefault();
+            let email = document.getElementById('admin-email').value;
+            let pass = document.getElementById('admin-password').value;
+
+            if (email === "bolowcefran@gmail.com" && pass === "nolhanyvan237") {
+                isAdminLoggedIn = true;
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+                document.getElementById('admin-toggle-btn').innerHTML = `<i class="fa-solid fa-right-from-bracket"></i> ${currentLang === 'fr' ? 'Déconnexion' : (currentLang === 'es' ? 'Cerrar Sesión' : 'Logout')}`;
+                updateAdminList();
+                alert(currentLang === 'fr' ? "Connexion Administrateur réussie !" : (currentLang === 'es' ? "¡Inicio de sesión de administrador exitoso!" : "Admin login successful!"));
+            } else {
+                alert(currentLang === 'fr' ? "Identifiant ou mot de passe incorrect." : (currentLang === 'es' ? "Identidad o contraseña incorrecta." : "Incorrect ID or password."));
+            }
+        }
+
+        function saveParcel(e) {
+            e.preventDefault();
+            if (!isAdminLoggedIn) return;
+
+            let trackingCode = document.getElementById('p-tracking').value.trim().toUpperCase();
+            let p = {
+                tracking: trackingCode,
+                clientName: document.getElementById('p-client-name').value,
+                clientPhone: document.getElementById('p-client-phone').value,
+                address: document.getElementById('p-address').value,
+                type: document.getElementById('p-type').value,
+                dimensions: document.getElementById('p-dimensions').value,
+                origin: document.getElementById('p-origin').value,
+                destination: document.getElementById('p-destination').value,
+                eta: document.getElementById('p-eta').value,
+                notes: document.getElementById('p-notes').value
+            };
+
+            let parcels = getParcels();
+            parcels[trackingCode] = p; // Enregistre ou met à jour ce code spécifique
+            localStorage.setItem('shiptrace_multi_parcels', JSON.stringify(parcels));
+
+            displayParcel(p);
+            updateAdminList();
+            alert(currentLang === 'fr' ? "Colis enregistré avec succès !" : (currentLang === 'es' ? "¡Paquete guardado con éxito!" : "Parcel saved successfully!"));
+        }
+
+        function searchParcel() {
+            let code = document.getElementById('search-input').value.trim().toUpperCase();
+            let parcels = getParcels();
+            let err = document.getElementById('search-error');
+
+            if (parcels[code]) {
+                err.classList.add('hidden');
+                displayParcel(parcels[code]);
+            } else {
+                err.classList.remove('hidden');
+            }
+        }
+
+        function displayParcel(p) {
+            document.getElementById('receipt-tracking').innerText = p.tracking;
+            document.getElementById('r-client-name').innerText = p.clientName;
+            document.getElementById('r-client-phone').innerText = p.clientPhone;
+            document.getElementById('r-address').innerText = p.address;
+            document.getElementById('r-type').innerText = p.type;
+            document.getElementById('r-dimensions').innerText = p.dimensions;
+            document.getElementById('r-origin').innerText = p.origin;
+            document.getElementById('r-destination').innerText = p.destination;
+            document.getElementById('r-eta').innerText = p.eta;
+            document.getElementById('r-notes').innerText = p.notes;
+        }
+
+        function addNewParcelForm() {
+            document.getElementById('p-tracking').value = "TRK-2026-" + Math.floor(10000 + Math.random() * 90000);
+            document.getElementById('p-client-name').value = "";
+            document.getElementById('p-client-phone').value = "";
+            document.getElementById('p-address').value = "";
+            document.getElementById('p-type').value = "";
+            document.getElementById('p-dimensions').value = "";
+            document.getElementById('p-origin').value = "";
+            document.getElementById('p-destination').value = "";
+            document.getElementById('p-eta').value = "";
+            document.getElementById('p-notes').value = "";
+        }
+
+        function updateAdminList() {
+            let parcels = getParcels();
+            let list = document.getElementById('admin-parcels-list');
+            list.innerHTML = '';
+            for (let code in parcels) {
+                let div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-slate-50 hover:bg-slate-100 p-2 rounded border border-slate-200 cursor-pointer";
+                div.innerHTML = `<span class="font-mono font-bold text-blue-600">${code}</span> <span class="text-slate-600">${parcels[code].clientName}</span>`;
+                div.onclick = () => {
+                    displayParcel(parcels[code]);
+                    document.getElementById('p-tracking').value = parcels[code].tracking;
+                    document.getElementById('p-client-name').value = parcels[code].clientName;
+                    document.getElementById('p-client-phone').value = parcels[code].clientPhone;
+                    document.getElementById('p-address').value = parcels[code].address;
+                    document.getElementById('p-type').value = parcels[code].type;
+                    document.getElementById('p-dimensions').value = parcels[code].dimensions;
+                    document.getElementById('p-origin').value = parcels[code].origin;
+                    document.getElementById('p-destination').value = parcels[code].destination;
+                    document.getElementById('p-eta').value = parcels[code].eta;
+                    document.getElementById('p-notes').value = parcels[code].notes;
+                };
+                list.appendChild(div);
+            }
+        }
+
+        function generateShareLink() {
+            let tracking = document.getElementById('p-tracking').value;
+            let url = window.location.origin + window.location.pathname + "?tracking=" + tracking;
+            navigator.clipboard.writeText(url);
+            alert(currentLang === 'fr' ? "Lien direct copié dans le presse-papier !\n\n" + url : (currentLang === 'es' ? "¡Enlace directo copiado al portapapeles!\n\n" + url : "Direct link copied to clipboard!\n\n" + url));
+        }
+
+        window.onload = function() {
+            let parcels = getParcels();
+            updateAdminList();
+            const urlParams = new URLSearchParams(window.location.search);
+            const trackingParam = urlParams.get('tracking');
+            if (trackingParam && parcels[trackingParam]) {
+                document.getElementById('search-input').value = trackingParam;
+                displayParcel(parcels[trackingParam]);
+            } else {
+                displayParcel(defaultParcel);
+            }
+        };
+    </script>
+</body>
+</html>
