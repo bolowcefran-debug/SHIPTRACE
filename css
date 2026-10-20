@@ -1,0 +1,13 @@
+/* Nom du client */
+.client-name {
+  font-size: 24px !important; /* Agrandit le nom */
+  font-weight: 800 !important;
+  color: #111827;
+}
+
+/* Téléphone et adresse */
+.client-phone, .client-address {
+  font-size: 18px !important; /* Agrandit le téléphone et l'adresse */
+  font-weight: 600;
+  color: #1f2937;
+}
